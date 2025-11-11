@@ -23,5 +23,5 @@ ENV PYTHONUNBUFFERED=1
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:8001/health || exit 1
 
-# Run application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "2"]
+# Run application (single worker to avoid ENV cache issues)
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001"]
