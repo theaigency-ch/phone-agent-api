@@ -1,11 +1,22 @@
-from fastapi import FastAPI, HTTPException, status
+"""
+Phone Agent API v2.0
+ElevenLabs + Qdrant + Redis + Direct CRM Integration
+"""
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 import logging
 
 from app.config import get_settings
-from app.models import VAPICallData, N8NResponse, HealthResponse
-from app.n8n_client import N8NClient
+from app.models import HealthResponse
+from app.services.elevenlabs_service import ElevenLabsService
+from app.services.openai_service import OpenAIService
+from app.services.qdrant_service import QdrantService
+from app.services.redis_service import RedisService
+from app.services.hubspot_service import HubSpotService
+from app.services.sheets_service import GoogleSheetsService
+from app.services.call_handler import CallHandler
+from app.routes import calls
 
 # Logging
 logging.basicConfig(
@@ -21,7 +32,7 @@ settings = get_settings()
 app = FastAPI(
     title=settings.api_title,
     version=settings.api_version,
-    description="Phone Agent API - VAPI to n8n Integration"
+    description="Phone Agent API - ElevenLabs Conversational AI with Qdrant Knowledge Base"
 )
 
 # CORS
@@ -33,8 +44,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# n8n Client
-n8n_client = N8NClient(webhook_url=settings.n8n_webhook_url)
+# Include routers
+app.include_router(calls.router)
 
 
 @app.get("/", tags=["Root"])
@@ -43,7 +54,8 @@ async def root():
     return {
         "service": "Phone Agent API",
         "version": settings.api_version,
-        "status": "running"
+        "status": "running",
+        "powered_by": "ElevenLabs + Qdrant + Redis"
     }
 
 
@@ -51,92 +63,100 @@ async def root():
 async def health_check():
     """Health check endpoint"""
     
-    n8n_healthy = await n8n_client.health_check()
+    services = {
+        "elevenlabs": bool(settings.elevenlabs_api_key),
+        "openai": bool(settings.openai_api_key),
+        "qdrant": False,
+        "redis": False,
+        "hubspot": bool(settings.hubspot_api_key),
+        "google_sheets": bool(settings.google_sheet_id)
+    }
+    
+    # Check Redis
+    try:
+        redis_service = RedisService()
+        services["redis"] = await redis_service.health_check()
+    except:
+        pass
+    
+    # Check Qdrant
+    try:
+        qdrant_service = QdrantService()
+        services["qdrant"] = True
+    except:
+        pass
+    
+    overall_status = "healthy" if all([
+        services["elevenlabs"],
+        services["openai"],
+        services["qdrant"],
+        services["redis"]
+    ]) else "degraded"
     
     return HealthResponse(
-        status="healthy" if n8n_healthy else "degraded",
+        status=overall_status,
         timestamp=datetime.utcnow().isoformat(),
         version=settings.api_version,
-        n8n_configured=bool(settings.n8n_webhook_url)
+        services=services
     )
 
 
-@app.post("/vapi/call-ended", response_model=N8NResponse, tags=["VAPI"])
-async def handle_vapi_call(call_data: VAPICallData):
-    """
-    Handle VAPI call-ended webhook
+@app.on_event("startup")
+async def startup_event():
+    """Startup event - Initialize all services"""
+    logger.info(f"Starting {settings.api_title} v{settings.api_version}")
+    logger.info(f"Environment: {settings.environment}")
     
-    This endpoint receives call data from VAPI after a call ends
-    and forwards it to n8n for processing (CRM update, meeting booking, etc.)
+    # Initialize services
+    elevenlabs_service = ElevenLabsService()
+    logger.info("✅ ElevenLabs service initialized")
     
-    Args:
-        call_data: VAPI call data
-        
-    Returns:
-        n8n response with processing status
-        
-    Raises:
-        HTTPException: If n8n webhook fails
-    """
-    try:
-        logger.info(f"Received VAPI call: {call_data.call_id}")
-        logger.info(f"Caller: {call_data.caller_name or call_data.caller_phone}")
-        logger.info(f"Purpose: {call_data.call_purpose}")
-        logger.info(f"Should book meeting: {call_data.should_book_meeting}")
-        
-        # Send to n8n
-        n8n_response = await n8n_client.send_call_data(call_data.model_dump())
-        
-        logger.info(f"n8n processed call: {call_data.call_id}")
-        
-        return N8NResponse(
-            status="success",
-            message="Call data processed successfully",
-            lead_id=n8n_response.get("lead_id"),
-            meeting_booked=n8n_response.get("meeting_booked"),
-            meeting_url=n8n_response.get("meeting_url")
-        )
-        
-    except Exception as e:
-        logger.error(f"Error processing VAPI call: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to process call: {str(e)}"
-        )
+    openai_service = OpenAIService()
+    logger.info("✅ OpenAI service initialized")
+    
+    qdrant_service = QdrantService()
+    logger.info("✅ Qdrant service initialized")
+    
+    redis_service = RedisService()
+    logger.info("✅ Redis service initialized")
+    
+    # Optional services
+    hubspot_service = None
+    if settings.hubspot_api_key:
+        hubspot_service = HubSpotService()
+        logger.info("✅ HubSpot service initialized")
+    else:
+        logger.warning("⚠️ HubSpot not configured")
+    
+    sheets_service = None
+    if settings.google_sheet_id and settings.google_service_account_file:
+        sheets_service = GoogleSheetsService()
+        await sheets_service.create_sheet_if_not_exists()
+        logger.info("✅ Google Sheets service initialized")
+    else:
+        logger.warning("⚠️ Google Sheets not configured")
+    
+    # Initialize call handler
+    call_handler = CallHandler(
+        elevenlabs_service=elevenlabs_service,
+        openai_service=openai_service,
+        qdrant_service=qdrant_service,
+        redis_service=redis_service,
+        hubspot_service=hubspot_service,
+        sheets_service=sheets_service
+    )
+    
+    # Inject into routes
+    calls.set_services(call_handler, qdrant_service)
+    logger.info("✅ Call routes configured")
+    
+    logger.info("🚀 All services initialized successfully!")
 
 
-@app.post("/vapi/function-call", tags=["VAPI"])
-async def handle_vapi_function_call(function_data: dict):
-    """
-    Handle VAPI function calls during conversation
-    
-    This endpoint can be called by VAPI during a conversation
-    to check calendar availability, etc.
-    
-    Args:
-        function_data: Function call data from VAPI
-        
-    Returns:
-        Function result
-    """
-    try:
-        function_name = function_data.get("function_name")
-        logger.info(f"VAPI function call: {function_name}")
-        
-        # Here you can implement real-time functions
-        # e.g., check_calendar_availability, get_lead_info, etc.
-        
-        return {
-            "status": "success",
-            "result": "Function executed"
-        }
-        
-    except Exception as e:
-        logger.error(f"Error in function call: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        )
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Shutdown event"""
+    logger.info(f"Shutting down {settings.api_title}")
 
 
 if __name__ == "__main__":

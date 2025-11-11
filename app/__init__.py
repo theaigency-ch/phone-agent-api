@@ -1,3 +1,5 @@
-"""Phone Agent API - VAPI Integration"""
-
-__version__ = "1.0.0"
+"""
+Phone Agent API v2.0
+ElevenLabs + Qdrant + Redis + Direct CRM Integration
+"""
+__version__ = "2.0.0"

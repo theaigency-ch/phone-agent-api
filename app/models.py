@@ -1,72 +1,108 @@
+"""
+Data Models for Phone Agent API v2.0
+"""
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from datetime import datetime
+from enum import Enum
 
 
-class VAPICallData(BaseModel):
-    """VAPI Call Data Model"""
+class CallStatus(str, Enum):
+    """Call status enum"""
+    INITIATED = "initiated"
+    RINGING = "ringing"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    NO_ANSWER = "no_answer"
+
+
+class CallSentiment(str, Enum):
+    """Call sentiment enum"""
+    POSITIVE = "positive"
+    NEUTRAL = "neutral"
+    NEGATIVE = "negative"
+
+
+class CallUrgency(str, Enum):
+    """Call urgency enum"""
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    URGENT = "urgent"
+
+
+class ConversationMessage(BaseModel):
+    """Single conversation message"""
+    role: str = Field(..., description="speaker role: user or assistant")
+    content: str = Field(..., description="Message content")
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+
+class CallData(BaseModel):
+    """Complete call data"""
     
-    # Call Information
+    # Call Identification
     call_id: str = Field(..., description="Unique call identifier")
-    call_duration: int = Field(..., description="Call duration in seconds")
-    call_started_at: str = Field(..., description="Call start timestamp")
-    call_ended_at: str = Field(..., description="Call end timestamp")
+    session_id: str = Field(..., description="ElevenLabs session ID")
+    
+    # Call Metadata
+    status: CallStatus = Field(default=CallStatus.INITIATED)
+    started_at: datetime = Field(default_factory=datetime.utcnow)
+    ended_at: Optional[datetime] = None
+    duration_seconds: Optional[int] = None
     
     # Caller Information
     caller_phone: str = Field(..., description="Caller phone number")
-    caller_name: Optional[str] = Field(None, description="Caller name (if provided)")
+    caller_name: Optional[str] = None
+    caller_email: Optional[str] = None
+    company_name: Optional[str] = None
     
-    # Call Content
-    call_transcript: str = Field(..., description="Full call transcript")
-    call_summary: Optional[str] = Field(None, description="AI-generated call summary")
+    # Conversation
+    conversation: List[ConversationMessage] = Field(default_factory=list)
+    transcript: Optional[str] = None
+    summary: Optional[str] = None
     
-    # Business Data (extracted by VAPI AI)
-    company_name: Optional[str] = Field(None, description="Company name mentioned")
-    call_purpose: Optional[str] = Field(None, description="Purpose of the call")
-    call_urgency: Optional[str] = Field("medium", description="Urgency level: low, medium, high")
+    # Business Data (extracted by AI)
+    call_purpose: Optional[str] = None
+    call_urgency: CallUrgency = Field(default=CallUrgency.MEDIUM)
+    call_sentiment: CallSentiment = Field(default=CallSentiment.NEUTRAL)
     
     # Actions
-    should_book_meeting: bool = Field(False, description="Should a meeting be booked?")
-    should_transfer: bool = Field(False, description="Should call be transferred?")
-    preferred_time: Optional[str] = Field(None, description="Preferred meeting time")
+    should_book_meeting: bool = False
+    meeting_booked: bool = False
+    meeting_url: Optional[str] = None
+    preferred_time: Optional[str] = None
     
-    # Sentiment Analysis
-    call_sentiment: Optional[str] = Field("neutral", description="Call sentiment: positive, neutral, negative")
+    # CRM Integration
+    hubspot_contact_id: Optional[str] = None
+    hubspot_company_id: Optional[str] = None
+    sheet_row: Optional[int] = None
     
     # Metadata
-    vapi_assistant_id: Optional[str] = Field(None, description="VAPI assistant ID")
-    
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "call_id": "call_abc123",
-                "call_duration": 180,
-                "call_started_at": "2025-10-30T10:00:00Z",
-                "call_ended_at": "2025-10-30T10:03:00Z",
-                "caller_phone": "+41791234567",
-                "caller_name": "Max Muster",
-                "call_transcript": "Grüezi, ich möchte gerne einen Termin vereinbaren...",
-                "call_summary": "Kunde möchte Demo-Termin für nächste Woche",
-                "company_name": "TechStartup AG",
-                "call_purpose": "Demo-Termin vereinbaren",
-                "call_urgency": "high",
-                "should_book_meeting": True,
-                "should_transfer": False,
-                "preferred_time": "Montag 10-12 Uhr",
-                "call_sentiment": "positive",
-                "vapi_assistant_id": "asst_123"
-            }
-        }
+    language: str = "de-CH"
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
-class N8NResponse(BaseModel):
-    """n8n Webhook Response"""
+class CompanyKnowledge(BaseModel):
+    """Company knowledge base entry"""
     
-    status: str
-    message: str
-    lead_id: Optional[str] = None
-    meeting_booked: Optional[bool] = None
-    meeting_url: Optional[str] = None
+    id: Optional[str] = None
+    title: str = Field(..., description="Knowledge entry title")
+    content: str = Field(..., description="Knowledge content")
+    category: str = Field(default="general", description="Category: products, services, pricing, faq, etc.")
+    tags: List[str] = Field(default_factory=list)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class KnowledgeSearchResult(BaseModel):
+    """Search result from knowledge base"""
+    
+    content: str
+    score: float
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
 class HealthResponse(BaseModel):
@@ -75,4 +111,13 @@ class HealthResponse(BaseModel):
     status: str
     timestamp: str
     version: str
-    n8n_configured: bool
+    services: Dict[str, bool]
+
+
+class CallResponse(BaseModel):
+    """API response for call operations"""
+    
+    status: str
+    message: str
+    call_id: Optional[str] = None
+    data: Optional[Dict[str, Any]] = None
