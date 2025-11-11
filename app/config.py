@@ -51,7 +51,10 @@ class Settings(BaseSettings):
     
     class Config:
         env_file = ".env"
+        env_file_encoding = "utf-8"
         case_sensitive = False
+        # Only load .env if it exists, otherwise use system ENV
+        extra = "ignore"
 
 
 @lru_cache()
