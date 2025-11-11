@@ -7,7 +7,7 @@ import asyncio
 import json
 from typing import Optional, Callable
 import websockets
-from elevenlabs import ElevenLabs
+import httpx
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -18,9 +18,9 @@ class ElevenLabsService:
     
     def __init__(self):
         settings = get_settings()
-        self.client = ElevenLabs(api_key=settings.elevenlabs_api_key)
-        self.agent_id = settings.elevenlabs_agent_id
         self.api_key = settings.elevenlabs_api_key
+        self.agent_id = settings.elevenlabs_agent_id
+        self.base_url = "https://api.elevenlabs.io/v1"
     
     async def create_conversation(
         self,
@@ -41,17 +41,28 @@ class ElevenLabsService:
         """
         try:
             # Create conversation via API
-            response = self.client.conversational_ai.create_conversation(
-                agent_id=self.agent_id,
-                metadata={
-                    "phone_number": phone_number
-                }
-            )
-            
-            session_id = response.conversation_id
-            logger.info(f"Created ElevenLabs conversation: {session_id}")
-            
-            return session_id
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{self.base_url}/convai/conversations",
+                    headers={
+                        "xi-api-key": self.api_key,
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "agent_id": self.agent_id,
+                        "metadata": {
+                            "phone_number": phone_number
+                        }
+                    },
+                    timeout=30.0
+                )
+                
+                response.raise_for_status()
+                data = response.json()
+                session_id = data.get("conversation_id")
+                
+                logger.info(f"Created ElevenLabs conversation: {session_id}")
+                return session_id
         
         except Exception as e:
             logger.error(f"Error creating conversation: {str(e)}")
@@ -131,13 +142,20 @@ class ElevenLabsService:
         """
         try:
             # Send via API
-            self.client.conversational_ai.send_message(
-                conversation_id=session_id,
-                message=message
-            )
-            
-            logger.info(f"Sent message to conversation: {session_id}")
-            return True
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{self.base_url}/convai/conversations/{session_id}/messages",
+                    headers={
+                        "xi-api-key": self.api_key,
+                        "Content-Type": "application/json"
+                    },
+                    json={"message": message},
+                    timeout=30.0
+                )
+                
+                response.raise_for_status()
+                logger.info(f"Sent message to conversation: {session_id}")
+                return True
         
         except Exception as e:
             logger.error(f"Error sending message: {str(e)}")
@@ -146,12 +164,16 @@ class ElevenLabsService:
     async def end_conversation(self, session_id: str) -> bool:
         """End conversation"""
         try:
-            self.client.conversational_ai.end_conversation(
-                conversation_id=session_id
-            )
-            
-            logger.info(f"Ended conversation: {session_id}")
-            return True
+            async with httpx.AsyncClient() as client:
+                response = await client.delete(
+                    f"{self.base_url}/convai/conversations/{session_id}",
+                    headers={"xi-api-key": self.api_key},
+                    timeout=30.0
+                )
+                
+                response.raise_for_status()
+                logger.info(f"Ended conversation: {session_id}")
+                return True
         
         except Exception as e:
             logger.error(f"Error ending conversation: {str(e)}")
@@ -160,11 +182,15 @@ class ElevenLabsService:
     async def get_conversation_history(self, session_id: str) -> dict:
         """Get conversation history"""
         try:
-            response = self.client.conversational_ai.get_conversation(
-                conversation_id=session_id
-            )
-            
-            return response
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.base_url}/convai/conversations/{session_id}",
+                    headers={"xi-api-key": self.api_key},
+                    timeout=30.0
+                )
+                
+                response.raise_for_status()
+                return response.json()
         
         except Exception as e:
             logger.error(f"Error getting conversation history: {str(e)}")
