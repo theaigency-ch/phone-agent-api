@@ -16,7 +16,7 @@ class OpenAIService:
     
     def __init__(self):
         settings = get_settings()
-        self.client = OpenAI(api_key=settings.openai_api_key)
+        # Don't store OpenAI client - create fresh for each call
         self.model = settings.openai_model
         self.brand_name = settings.brand_name
         self.company_description = settings.company_description
@@ -84,7 +84,9 @@ GESPRÄCHSFÜHRUNG:
                 })
             
             # Generate response
-            response = self.client.chat.completions.create(
+            settings = get_settings()
+            client = OpenAI(api_key=settings.openai_api_key)
+            response = client.chat.completions.create(
                 model=self.model,
                 messages=messages,
                 temperature=0.7,
@@ -131,7 +133,9 @@ Extrahiere:
 
 Antworte NUR mit JSON, keine Erklärungen."""
 
-            response = self.client.chat.completions.create(
+            settings = get_settings()
+            client = OpenAI(api_key=settings.openai_api_key)
+            response = client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {"role": "system", "content": "Du bist ein Datenextraktions-Assistent. Antworte nur mit JSON."},
@@ -167,7 +171,9 @@ Antworte NUR mit JSON, keine Erklärungen."""
                 for msg in conversation_history
             ])
             
-            response = self.client.chat.completions.create(
+            settings = get_settings()
+            client = OpenAI(api_key=settings.openai_api_key)
+            response = client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {"role": "system", "content": "Erstelle eine prägnante Zusammenfassung (max 3 Sätze) des Telefongesprächs."},

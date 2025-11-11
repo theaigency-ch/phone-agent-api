@@ -23,7 +23,7 @@ class QdrantService:
             api_key=settings.qdrant_api_key
         )
         self.collection_name = settings.qdrant_collection
-        self.openai_client = OpenAI(api_key=settings.openai_api_key)
+        # Don't store OpenAI client - create fresh for each call
         self.embedding_model = "text-embedding-3-small"
         self.embedding_dimension = 1536
         
@@ -54,7 +54,11 @@ class QdrantService:
     def _get_embedding(self, text: str) -> List[float]:
         """Get OpenAI embedding for text"""
         try:
-            response = self.openai_client.embeddings.create(
+            # Create fresh OpenAI client with current settings
+            settings = get_settings()
+            openai_client = OpenAI(api_key=settings.openai_api_key)
+            
+            response = openai_client.embeddings.create(
                 model=self.embedding_model,
                 input=text
             )
