@@ -4,9 +4,9 @@ Company Knowledge Base for Phone Agent
 """
 import logging
 from typing import List, Optional
+import httpx
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
-from openai import OpenAI
 from app.models import CompanyKnowledge, KnowledgeSearchResult
 from app.config import get_settings
 
@@ -56,13 +56,20 @@ class QdrantService:
         try:
             # Create fresh OpenAI client with current settings
             settings = get_settings()
-            openai_client = OpenAI(api_key=settings.openai_api_key)
-            
-            response = openai_client.embeddings.create(
-                model=self.embedding_model,
-                input=text
+            headers = {
+                "Authorization": f"Bearer {settings.openai_api_key}",
+                "Content-Type": "application/json",
+            }
+            payload = {"model": self.embedding_model, "input": text}
+            resp = httpx.post(
+                "https://api.openai.com/v1/embeddings",
+                headers=headers,
+                json=payload,
+                timeout=30.0,
             )
-            return response.data[0].embedding
+            resp.raise_for_status()
+            data = resp.json()
+            return data["data"][0]["embedding"]
         
         except Exception as e:
             logger.error(f"Error getting embedding: {str(e)}")
