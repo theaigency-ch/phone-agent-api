@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     
     # API Configuration
     api_title: str = "Phone Agent API"
-    api_version: str = "2.0.0"
+    api_version: str = "2.0.1"
     environment: str = "production"
     
     # ElevenLabs Configuration
