@@ -12,6 +12,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application
 COPY app/ ./app/
 
+# Accept build args and set as ENV
+ARG OPENAI_API_KEY
+ARG ELEVENLABS_API_KEY
+ENV OPENAI_API_KEY=${OPENAI_API_KEY}
+ENV ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
+
 # Expose port
 EXPOSE 8001
 
