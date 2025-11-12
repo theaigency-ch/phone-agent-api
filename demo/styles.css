@@ -219,13 +219,17 @@ h1, h2, h3 {
     background: var(--white);
     border: 2px solid var(--black);
     border-radius: 16px;
-    padding: var(--spacing-lg);
-    min-height: 500px;
-    position: relative;
+    padding: var(--spacing-md);
+    overflow: hidden;
 }
 
 #elevenlabs-widget {
-    min-height: 450px;
+    width: 100%;
+}
+
+#elevenlabs-widget iframe {
+    display: block;
+    width: 100%;
 }
 
 /* Fallback */
