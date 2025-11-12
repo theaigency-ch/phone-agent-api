@@ -73,6 +73,11 @@ h1, h2, h3 {
     align-items: center;
 }
 
+.logo-img {
+    height: 50px;
+    width: auto;
+}
+
 .logo-text {
     font-family: var(--font-heading);
     font-size: 1.5rem;
@@ -97,15 +102,28 @@ h1, h2, h3 {
    ======================================== */
 
 .hero {
-    background: var(--black);
+    background: var(--black) url('images/hero-bg.jpg') center center / cover no-repeat;
     color: var(--white);
     padding: var(--spacing-2xl) 0 var(--spacing-xl) 0;
     text-align: center;
+    position: relative;
+}
+
+.hero-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 0;
 }
 
 .hero-content {
     max-width: 800px;
     margin: 0 auto;
+    position: relative;
+    z-index: 1;
 }
 
 .badge {
@@ -143,51 +161,7 @@ h1, h2, h3 {
     margin: 0 auto;
 }
 
-/* ========================================
-   Instructions Section
-   ======================================== */
-
-.instructions-section {
-    padding: var(--spacing-xl) 0;
-    background: var(--white);
-}
-
-.instructions h2 {
-    font-size: 2.5rem;
-    text-align: center;
-    margin-bottom: var(--spacing-lg);
-}
-
-.steps {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: var(--spacing-md);
-    max-width: 1000px;
-    margin: 0 auto;
-}
-
-.step {
-    text-align: center;
-    padding: var(--spacing-md);
-}
-
-.step-number {
-    display: inline-block;
-    width: 50px;
-    height: 50px;
-    line-height: 50px;
-    background: var(--black);
-    color: var(--accent);
-    font-family: var(--font-heading);
-    font-size: 1.5rem;
-    border-radius: 50%;
-    margin-bottom: var(--spacing-sm);
-}
-
-.step p {
-    font-size: 1rem;
-    color: var(--gray);
-}
+/* Instructions Section removed - Demo comes directly after Hero */
 
 /* ========================================
    Demo Section
