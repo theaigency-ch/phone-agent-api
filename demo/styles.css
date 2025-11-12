@@ -219,17 +219,39 @@ h1, h2, h3 {
     background: var(--white);
     border: 2px solid var(--black);
     border-radius: 16px;
-    padding: var(--spacing-md);
-    overflow: hidden;
+    padding: var(--spacing-lg);
+    min-height: 400px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
 }
 
 #elevenlabs-widget {
     width: 100%;
+    min-height: 200px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
-#elevenlabs-widget iframe {
-    display: block;
-    width: 100%;
+.widget-instructions {
+    margin-top: var(--spacing-md);
+    padding: var(--spacing-md);
+    background: var(--gray-lightest);
+    border-radius: 8px;
+    max-width: 600px;
+}
+
+.widget-instructions p {
+    margin: var(--spacing-xs) 0;
+    color: var(--gray);
+}
+
+.widget-instructions p:first-child {
+    color: var(--black);
+    font-size: 1.1rem;
 }
 
 /* Fallback */
